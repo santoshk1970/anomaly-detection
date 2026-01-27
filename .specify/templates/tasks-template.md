@@ -69,6 +69,16 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T008 Configure error handling and logging infrastructure
 - [ ] T009 Setup environment configuration management
 
+**Streaming-specific foundational tasks** (include if applicable):
+
+- [ ] T010 [P] Setup stream processing framework (e.g., Kafka, Pulsar, or in-memory streams)
+- [ ] T011 [P] Implement backpressure and flow control mechanisms
+- [ ] T012 [P] Setup event schema registry and validation
+- [ ] T013 [P] Configure checkpoint/state store infrastructure
+- [ ] T014 [P] Implement metrics collection (throughput, latency, lag)
+- [ ] T015 [P] Setup distributed tracing infrastructure
+- [ ] T016 [P] Implement dead-letter queue for failed events
+
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
 ---
@@ -86,6 +96,13 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T010 [P] [US1] Contract test for [endpoint] in tests/contract/test_[name].py
 - [ ] T011 [P] [US1] Integration test for [user journey] in tests/integration/test_[name].py
 
+**Streaming-specific tests** (include if user story processes streams):
+
+- [ ] T012 [P] [US1] Backpressure test: verify producer slows when consumer blocks
+- [ ] T013 [P] [US1] Failure recovery test: verify checkpoint recovery after crash
+- [ ] T014 [P] [US1] Performance test: verify throughput meets requirements
+- [ ] T015 [P] [US1] Latency test: verify p99 latency under load
+
 ### Implementation for User Story 1
 
 - [ ] T012 [P] [US1] Create [Entity1] model in src/models/[entity1].py
@@ -94,6 +111,15 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T015 [US1] Implement [endpoint/feature] in src/[location]/[file].py
 - [ ] T016 [US1] Add validation and error handling
 - [ ] T017 [US1] Add logging for user story 1 operations
+
+**Streaming-specific implementation** (include if applicable):
+
+- [ ] T018 [P] [US1] Define event schema in src/schemas/[event].py
+- [ ] T019 [US1] Implement stream processor with backpressure in src/processors/[name].py
+- [ ] T020 [US1] Add checkpoint logic for state persistence
+- [ ] T021 [US1] Implement retry strategy with exponential backoff
+- [ ] T022 [US1] Add metrics instrumentation (throughput, latency, errors)
+- [ ] T023 [US1] Configure dead-letter queue routing for failures
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 

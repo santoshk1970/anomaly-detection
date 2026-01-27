@@ -1,0 +1,34 @@
+[
+  {
+    "type": "record",
+    "name": "SensorReading",
+    "namespace": "com.grid.events",
+    "fields": [
+      {"name": "meter_id", "type": "string"},
+      {"name": "timestamp", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+      {"name": "voltage", "type": "double"},
+      {"name": "current", "type": "double"},
+      {"name": "temperature", "type": "double"},
+      {"name": "status", "type": ["null", "string"], "default": null}
+    ]
+  },
+  {
+    "type": "record",
+    "name": "AnomalyEvent",
+    "namespace": "com.grid.events",
+    "fields": [
+      {"name": "anomaly_type", "type": "string"},
+      {
+        "name": "severity",
+        "type": {
+          "type": "enum",
+          "name": "SeverityLevel",
+          "symbols": ["INFO", "WARNING", "ERROR", "CRITICAL"]
+        }
+      },
+      {"name": "original_event", "type": "com.grid.events.SensorReading"},
+      {"name": "threshold_used", "type": ["null", "double"], "default": null},
+      {"name": "deviation", "type": ["null", "double"], "default": null}
+    ]
+  }
+]

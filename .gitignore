@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Java/Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+.gradle/
+build/
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Docker volumes
+kafka-data/
+flink-checkpoints/
+influxdb-data/
+minio-data/
+prometheus-data/
+grafana-data/
+
+# Temporary files
+*.tmp
+*.swp

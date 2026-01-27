@@ -31,7 +31,13 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- [ ] **Stream-First Architecture**: Does the design process data as continuous streams with bounded memory?
+- [ ] **Backpressure & Flow Control**: Are backpressure mechanisms and buffer limits defined?
+- [ ] **Event Sourcing & Immutability**: Are state changes captured as immutable events?
+- [ ] **Observability & Monitoring**: Are metrics, tracing, and lag monitoring planned?
+- [ ] **Fault Tolerance & Recovery**: Are retry strategies, DLQs, and checkpointing included?
+- [ ] **Test-First**: Are integration tests for happy path and failure scenarios planned?
+- [ ] **Performance Requirements**: Does design target 10K events/sec/core, <100ms p99 latency?
 
 ## Project Structure
 

@@ -1,0 +1,289 @@
+version: '3.8'
+
+services:
+  # Kafka (KRaft mode - no Zookeeper needed)
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka
+    hostname: kafka
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    env_file:
+      - .docker/kafka/kafka.env
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - grid-network
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Apicurio Schema Registry
+  schema-registry:
+    image: apicurio/apicurio-registry-mem:2.5.0.Final
+    container_name: schema-registry
+    hostname: schema-registry
+    ports:
+      - "8080:8080"
+    environment:
+      REGISTRY_KAFKASQL_BOOTSTRAPSERVERS: kafka:9092
+      REGISTRY_KAFKASQL_TOPIC: _schemas
+    networks:
+      - grid-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Flink JobManager
+  flink-jobmanager:
+    image: flink:1.18.1-scala_2.12-java17
+    container_name: flink-jobmanager
+    hostname: flink-jobmanager
+    ports:
+      - "8081:8081"
+      - "9249:9249"
+    command: jobmanager
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+    volumes:
+      - ./.docker/flink/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
+      - flink-checkpoints:/tmp/flink-checkpoints
+      - ./.docker/flink/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
+      - flink-checkpoints:/tmp/flink-checkpoints
+    networks:
+      - grid-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Flink TaskManager
+  flink-taskmanager:
+    image: flink:1.18.1-scala_2.12-java17
+    hostname: flink-taskmanager
+    command: taskmanager
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+    volumes:
+      - ./.docker/flink/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
+      - flink-checkpoints:/tmp/flink-checkpoints
+    networks:
+      - grid-network
+    depends_on:
+      flink-jobmanager:
+        condition: service_healthy
+    scale: 2
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:v2.48.1
+    container_name: prometheus
+    hostname: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./.docker/flink/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
+      - flink-checkpoints:/tmp/flink-checkpoints
+      - ./.docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - grid-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: grafana
+    hostname: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./.docker/grafana/provisioning-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ./.docker/grafana/provisioning-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml
+      - ./dashboards/grafana-provisioning/dashboards:/var/lib/grafana/dashboards
+      - grafana-data:/var/lib/grafana
+    networks:
+      - grid-network
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # InfluxDB 2.x OSS
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    hostname: influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=admin123456
+      - DOCKER_INFLUXDB_INIT_ORG=grid
+      - DOCKER_INFLUXDB_INIT_BUCKET=grid
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=grid-admin-token
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    networks:
+      - grid-network
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO (S3-compatible object storage)
+  minio:
+    image: minio/minio:RELEASE.2024-01-01T16-36-33Z
+    container_name: minio
+    hostname: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - grid-network
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Kafka Exporter for Prometheus metrics
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    container_name: kafka-exporter
+    hostname: kafka-exporter
+    ports:
+      - "9308:9308"
+    command:
+      - --kafka.server=kafka:9092
+      - --web.listen-address=:9308
+      - --web.telemetry-path=/metrics
+    networks:
+      - grid-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Helper services
+  kafka-setup:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka-setup
+    hostname: kafka-setup
+    networks:
+      - grid-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        echo "Waiting for Kafka to be ready..."
+        cub kafka-ready -b kafka:9092 1 60
+        kafka-topics --create --if-not-exists --topic sensor-readings --bootstrap-server kafka:9092 --partitions 3 --replication-factor 1
+        kafka-topics --create --if-not-exists --topic anomalies --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1
+        kafka-topics --create --if-not-exists --topic dead-letter-queue --bootstrap-server kafka:9092 --partitions 1 --replication-factor 1
+        echo "Kafka topics created!"
+
+  minio-mc:
+    image: minio/mc
+    container_name: minio-mc
+    hostname: minio-mc
+    networks:
+      - grid-network
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc config host add minio http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb minio/grid-archive;
+      /usr/bin/mc policy set public minio/grid-archive;
+      echo 'MinIO bucket created!';
+      "
+
+  schema-registry-setup:
+    image: curlimages/curl:latest
+    container_name: schema-registry-setup
+    hostname: schema-registry-setup
+    volumes:
+      - .:/app
+    working_dir: /app
+    networks:
+      - grid-network
+    depends_on:
+      schema-registry:
+        condition: service_healthy
+    command: ["sh", "specs/001-grid-anomaly-detection/contracts/register-schemas.sh"]
+
+  data-generator:
+    build:
+      context: ./data-generator
+      dockerfile: Dockerfile
+    container_name: data-generator
+    hostname: data-generator
+    volumes:
+      - ./data-generator/src:/app/src
+      - ./specs:/app/specs
+    working_dir: /app
+    networks:
+      - grid-network
+    depends_on:
+      kafka-setup:
+        condition: service_completed_successfully
+      schema-registry-setup:
+        condition: service_completed_successfully
+    command: >
+      python src/generator.py
+      --bootstrap-servers kafka:9092
+      --schema-registry-url http://schema-registry:8080
+      --event-rate 100
+      --duration 3600
+
+networks:
+  grid-network:
+    driver: bridge
+
+volumes:
+  kafka-data:
+  flink-checkpoints:
+  influxdb-data:
+  minio-data:
+  prometheus-data:
+  grafana-data:

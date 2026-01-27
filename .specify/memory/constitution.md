@@ -1,50 +1,153 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+SYNC IMPACT REPORT
+==================
+Version: 0.0.0 → 1.0.0 (Initial ratification)
+
+Rationale for MAJOR version (1.0.0):
+  Initial constitution ratification establishing governance framework and core principles.
+
+Modified Principles: N/A (Initial creation)
+
+Added Sections:
+  - Core Principles:
+    - I. Stream-First Architecture
+    - II. Backpressure & Flow Control
+    - III. Event Sourcing & Immutability
+    - IV. Observability & Monitoring
+    - V. Fault Tolerance & Recovery
+  - Development Workflow (Test-First, Code Review, Deployment Standards)
+  - Quality Standards (Performance, Scalability, Reliability)
+  - Governance (Amendment procedure, compliance review)
+
+Removed Sections: N/A
+
+Templates Updated:
+  ✅ .specify/templates/plan-template.md
+     - Replaced [Gates determined based on constitution file] with concrete constitution checks
+     - Added all 5 streaming principles + test-first + performance requirements
+  ✅ .specify/templates/spec-template.md
+     - Added "Streaming-Specific Requirements" section after Functional Requirements
+     - Included SR-001 through SR-006 placeholders for throughput, backpressure, schemas,
+       checkpointing, recovery, and latency
+  ✅ .specify/templates/tasks-template.md
+     - Added streaming-specific foundational tasks (T010-T016) in Phase 2
+     - Added streaming-specific test tasks for backpressure, recovery, performance, latency
+     - Added streaming-specific implementation tasks (event schemas, processors, checkpoints,
+       retry, metrics, DLQ)
+
+Follow-up TODOs: None
+All placeholders resolved. No deferred items.
+-->
+
+# Streaming Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Stream-First Architecture
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+All data processing MUST be designed around continuous streams rather than batch operations.
+Every component MUST support incremental processing with bounded memory consumption.
+Pipelines MUST be composable: streams can be combined, split, and transformed without
+breaking stream semantics.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+**Rationale**: Stream-first design ensures the system scales horizontally and handles
+real-time data without artificial batching delays. Bounded memory prevents out-of-memory
+failures under high load.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### II. Backpressure & Flow Control
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+Every stream processor MUST implement backpressure to prevent overwhelming downstream
+consumers. Producers MUST respect consumer signals to slow down or pause emission.
+Buffers MUST have explicit size limits with configurable overflow strategies
+(drop, block, or error).
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+**Rationale**: Without backpressure, fast producers overwhelm slow consumers, causing
+memory exhaustion and cascading failures. Explicit flow control makes performance
+characteristics predictable and systems resilient under variable load.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### III. Event Sourcing & Immutability
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+State changes MUST be captured as immutable events in append-only logs. Events MUST
+contain sufficient context for independent processing (no hidden dependencies on
+external state). Derived state MUST be reproducible by replaying the event stream.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+**Rationale**: Event sourcing provides complete audit trails, enables temporal queries,
+and simplifies debugging. Immutability eliminates race conditions and makes concurrent
+processing safe.
+
+### IV. Observability & Monitoring
+
+Every stream pipeline MUST expose metrics for throughput, latency (p50, p95, p99),
+and error rates. Processing lag MUST be measurable at every stage. All events MUST
+carry tracing context for distributed correlation.
+
+**Rationale**: Real-time systems require real-time visibility. Without observability,
+diagnosing performance issues and bottlenecks becomes impossible. Lag metrics are
+critical for maintaining SLAs.
+
+### V. Fault Tolerance & Recovery
+
+Stream processors MUST handle transient failures gracefully through retries with
+exponential backoff. Persistent failures MUST be routed to dead-letter queues for
+manual review. Checkpointing MUST enable recovery from the last known good state
+without data loss or duplication.
+
+**Rationale**: Distributed streaming systems face inevitable failures (network
+partitions, downstream service outages). Recovery mechanisms must be built-in, not
+bolted-on, to ensure data integrity and system availability.
+
+## Development Workflow
+
+### Test-First Discipline
+
+Integration tests MUST be written before implementing stream processors. Tests MUST
+verify both happy path and failure scenarios (backpressure, downstream errors,
+checkpointing). Contract tests MUST validate event schemas between producers and
+consumers.
+
+### Code Review Requirements
+
+All PRs MUST include:
+- Evidence of backpressure handling
+- Monitoring/metrics instrumentation
+- Checkpoint/recovery strategy documentation
+- Performance characteristics (throughput/latency expectations)
+
+### Deployment Standards
+
+Stream processors MUST be deployed with health checks that verify connectivity to
+upstream/downstream dependencies. Deployments MUST use blue-green or canary strategies
+to prevent disruption to running streams. Rollbacks MUST preserve checkpoint state.
+
+## Quality Standards
+
+### Performance Requirements
+
+Stream processors MUST achieve throughput of at least 10,000 events/second per core
+under normal load. Latency (event ingestion to processing completion) MUST stay below
+100ms at p99 for event sizes up to 10KB.
+
+### Scalability Requirements
+
+Adding stream processing capacity MUST NOT require code changes (scale by increasing
+parallelism, not by manual partitioning). The system MUST support at least 100
+concurrent streams without performance degradation.
+
+### Reliability Requirements
+
+The system MUST tolerate individual component failures without data loss. Exactly-once
+processing semantics MUST be maintained through idempotent operations or transactional
+checkpointing. Recovery time objective (RTO) MUST be under 60 seconds.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes all other development practices and architectural decisions.
+Amendments require:
+1. Documented rationale with concrete examples
+2. Approval from project maintainers
+3. Migration plan for existing components violating new rules
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+All code reviews MUST verify compliance with these principles. Complexity that violates
+principles MUST be justified in writing and included in technical debt tracking.
+
+**Version**: 1.0.0 | **Ratified**: 2026-01-24 | **Last Amended**: 2026-01-24
