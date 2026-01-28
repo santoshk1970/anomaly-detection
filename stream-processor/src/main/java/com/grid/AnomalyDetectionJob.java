@@ -5,12 +5,14 @@ import com.grid.events.SensorReading;
 import com.grid.functions.AnomalyDetectorFunction;
 import com.grid.functions.MovingAverageFunction;
 import com.grid.serde.JsonSerializationSchema;
+import com.grid.sinks.AnomalyS3ParquetSink;
 import com.grid.sinks.InfluxDbSink;
 import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema;
 import org.apache.flink.connector.kafka.sink.KafkaSink;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer;
+import org.apache.kafka.clients.consumer.OffsetResetStrategy;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import com.grid.serde.JsonDeserializationSchema;
@@ -23,6 +25,9 @@ public class AnomalyDetectionJob {
     public static void main(String[] args) throws Exception {
         // Set up the streaming execution environment
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        
+        // Enable checkpointing for MinIO sink (every 10 seconds)
+        env.enableCheckpointing(10000);
 
         // Kafka and Schema Registry properties
         final String bootstrapServers = "kafka:9092";
@@ -30,7 +35,7 @@ public class AnomalyDetectionJob {
         final String topic = "sensor-readings";
         final String groupId = "anomaly-detector-group";
 
-        // Configure the Kafka source
+        // Configure the Kafka source (back to working version)
         KafkaSource<SensorReading> source = KafkaSource.<SensorReading>builder()
                 .setBootstrapServers(bootstrapServers)
                 .setTopics(topic)
@@ -59,6 +64,12 @@ public class AnomalyDetectionJob {
 
         // Add the anomaly sink to the stream
         anomalyStream.sinkTo(anomalySink).name("Anomaly Kafka Sink");
+
+        // Add the MinIO sink for long-term storage (temporarily disabled)
+        // anomalyStream
+        //     .map(anomaly -> new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(anomaly))
+        //     .sinkTo(AnomalyS3ParquetSink.create("s3://anomalies/"))
+        //     .name("Anomaly MinIO Sink");
 
         // Add the InfluxDB sink for anomalies
         // anomalyStream.addSink(new InfluxDbSink()).name("InfluxDB Sink");
